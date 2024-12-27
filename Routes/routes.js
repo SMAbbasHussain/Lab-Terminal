@@ -5,6 +5,7 @@ const {
   addReview,
   getTopRatedAttractions,
   getVisitorActivity,
+  addVisitedAttraction
 } = require("../controllers/controllers");
 
 const router = express.Router();
@@ -19,5 +20,8 @@ router.get("/visitors/activity", getVisitorActivity);
 
 // Review routes
 router.post("/reviews", addReview);
+
+// Add a visited attraction for a visitor
+router.post("/visitors/:visitorId/visited-attraction", addVisitedAttraction);
 
 module.exports = router;

@@ -1,4 +1,5 @@
 const { Attraction, Visitor, Review } = require("../Models/models");
+const mongoose = require("mongoose");
 
 /** ------------------------- Attraction Logic ------------------------- */
 
@@ -63,27 +64,48 @@ exports.addVisitor = async (req, res) => {
 /** ------------------------- Review Logic ------------------------- */
 
 // Add a review
+
 exports.addReview = async (req, res) => {
   try {
     const { attraction, visitor, score, comment } = req.body;
 
+    // Validate that attraction, visitor, and score are provided
     if (!attraction || !visitor || score === undefined) {
       return res.status(400).json({ error: "Attraction, visitor, and score are required" });
     }
 
+    // Ensure attraction and visitor are valid ObjectIds
+    if (!mongoose.Types.ObjectId.isValid(attraction) || !mongoose.Types.ObjectId.isValid(visitor)) {
+      return res.status(400).json({ error: "Invalid attraction or visitor ID" });
+    }
+
+    // Check if the visitor exists
     const visitorExists = await Visitor.findById(visitor);
     if (!visitorExists) {
       return res.status(404).json({ error: "Visitor does not exist" });
     }
 
+    // Check if the attraction exists
+    const attractionExists = await Attraction.findById(attraction);
+    if (!attractionExists) {
+      return res.status(404).json({ error: "Attraction does not exist" });
+    }
+
+    // Ensure the score is between 1 and 5
+    if (score < 1 || score > 5) {
+      return res.status(400).json({ error: "Score must be between 1 and 5" });
+    }
+
+    // Check if the visitor has already reviewed the attraction
     const existingReview = await Review.findOne({ attraction, visitor });
     if (existingReview) {
       return res.status(400).json({ error: "Visitor has already reviewed this attraction" });
     }
 
+    // Create the review
     const review = await Review.create({ attraction, visitor, score, comment });
 
-    // Update attraction rating
+    // Update the attraction's rating
     await exports.updateAttractionRating(attraction);
 
     res.status(201).json(review);
@@ -91,6 +113,7 @@ exports.addReview = async (req, res) => {
     res.status(400).json({ error: error.message });
   }
 };
+
 
 // Get top-rated attractions
 exports.getTopRatedAttractions = async (req, res) => {
@@ -124,5 +147,44 @@ exports.getVisitorActivity = async (req, res) => {
     res.status(200).json(activity);
   } catch (error) {
     res.status(500).json({ error: "Failed to retrieve visitor activity" });
+  }
+};
+
+// Add a visited attraction to a visitor
+exports.addVisitedAttraction = async (req, res) => {
+  try {
+    const { visitorId, attractionId } = req.body;
+
+    // Validate input
+    if (!visitorId || !attractionId) {
+      return res.status(400).json({ error: "Visitor ID and Attraction ID are required" });
+    }
+
+    // Check if visitor exists
+    const visitor = await Visitor.findById(visitorId);
+    if (!visitor) {
+      return res.status(404).json({ error: "Visitor not found" });
+    }
+
+    // Check if the attraction exists
+    const attraction = await Attraction.findById(attractionId);
+    if (!attraction) {
+      return res.status(404).json({ error: "Attraction not found" });
+    }
+
+    // Check if the attraction is already in the visitor's visited list
+    if (visitor.visitedAttractions.includes(attractionId)) {
+      return res.status(400).json({ error: "Attraction has already been visited by this visitor" });
+    }
+
+    // Add the attraction to the visitor's visitedAttractions array
+    visitor.visitedAttractions.push(attractionId);
+
+    // Save the updated visitor document
+    await visitor.save();
+
+    res.status(200).json(visitor);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to add visited attraction" });
   }
 };
