@@ -102,6 +102,11 @@ exports.addReview = async (req, res) => {
       return res.status(400).json({ error: "Visitor has already reviewed this attraction" });
     }
 
+    // Check if the visitor has visited the attraction before adding the review
+    if (!visitorExists.visitedAttractions.includes(attraction)) {
+      return res.status(400).json({ error: "Visitor must visit the attraction before adding a review" });
+    }
+
     // Create the review
     const review = await Review.create({ attraction, visitor, score, comment });
 
